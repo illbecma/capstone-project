@@ -5,14 +5,12 @@
 
 class Detector {
  public:
-  virtual void detect(){};
-  virtual void postProcess(){};
-  void setInput(cv::Mat* const image) { input = image; }
+  virtual void detect(const cv::Mat& input){};
+  virtual void postProcess(const cv::Mat& input){};
   void setConfThreshold(float conf) { confThreshold = conf; }
   void setNMSThreshold(float nms) { nmsThreshold = nms; }
 
  protected:
-  cv::Mat* input;
   float confThreshold = 0.5; 
   float nmsThreshold = 0.4; 
 };

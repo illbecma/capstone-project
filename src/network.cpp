@@ -1,4 +1,4 @@
-#include "Network.h"
+#include "network.h"
 
 Network::Network(std::string onnx) : _onnxFile(onnx) {
   try {
@@ -45,17 +45,21 @@ void Network::create(NetworkType type) {
   _net.setPreferableTarget(cv::dnn::DNN_TARGET_CPU);
 }
 
-void Network::detect() {
+void Network::detect(const cv::Mat& input) {
+  std::lock_guard<std::mutex> lck(_mutex);
   // Create a 4D blob from a frame.
-  cv::Mat blob = cv::dnn::blobFromImage(*input, 1 / 255.0, _inputSize,
+  cv::Mat blob = cv::dnn::blobFromImage(input, 1 / 255.0, _inputSize,
                                         cv::Scalar(0, 0, 0), true, false);
   // Run forward step on the blob.
   _net.setInput(std::move(blob));
   _net.forward(_outputs, _outputLayers);
-  postProcess();
+  postProcess(input);
+  // add prediction to queue and notify
+  _predictions.push_back(std::make_pair(input, _boxes));
+  _cond.notify_one();
 }
 
-void Network::postProcess() {
+void Network::postProcess(const cv::Mat& input) {
   std::vector<int> classIds;
   std::vector<float> confidences;
   std::vector<cv::Rect> boxes;
@@ -72,10 +76,10 @@ void Network::postProcess() {
       // Get the value and location of the maximum score
       minMaxLoc(scores, 0, &confidence, 0, &classIdPoint);
       if (confidence > confThreshold) {
-        int centerX = (int)(data[0] * input->cols);
-        int centerY = (int)(data[1] * input->rows);
-        int width = (int)(data[2] * input->cols);
-        int height = (int)(data[3] * input->rows);
+        int centerX = (int)(data[0] * input.cols);
+        int centerY = (int)(data[1] * input.rows);
+        int width = (int)(data[2] * input.cols);
+        int height = (int)(data[3] * input.rows);
         int left = centerX - width / 2;
         int top = centerY - height / 2;
 
@@ -90,6 +94,7 @@ void Network::postProcess() {
   // with lower confidences
   std::vector<int> indices;
   cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
+  _boxes.clear();
   for (size_t i = 0; i < indices.size(); ++i) {
     int idx = indices[i];
     _boxes.emplace_back(boxes[idx]);
@@ -108,6 +113,14 @@ void Network::getOutputLayers() {
   }
 }
 
-void Network::setInputSize(const int height, const int width) { 
-  _inputSize = cv::Size(height, width); 
+void Network::setInputSize(const int height, const int width) {
+  _inputSize = cv::Size(height, width);
+}
+
+BBoxPrediction Network::getPrediction() {
+  std::unique_lock<std::mutex> uLock(_mutex);
+  _cond.wait(uLock, [this] { return !_predictions.empty(); });
+  BBoxPrediction p = std::move(_predictions.back());
+  _predictions.pop_back();
+  return p;
 }

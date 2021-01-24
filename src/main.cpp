@@ -1,16 +1,13 @@
-// This code is based on LearnOpenCV code writtend at BigVision LLC. It is based
-// on the OpenCV project. It is subject to the license terms in the LICENSE file
-// found in this distribution and at http://opencv.org/license.html
-
-// Usage example:  ./DeepLearning_ch12 image.jpg
+#include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
 #include <opencv2/core.hpp>
 #include <opencv2/dnn.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
-#include <sstream>
-#include "Network.h"
+
+#include "network.h"
 
 using namespace cv;
 using namespace dnn;
@@ -24,33 +21,15 @@ int inpHeight = 416;        // Height of network's input image
 vector<string> classes;
 
 // Draw the predicted bounding box
-void drawPred(int classId, float conf, int left, int top, int right, int bottom,
-              Mat& frame) {
+void drawPred(Mat& frame, std::vector<cv::Rect> bboxes, int& img_count) {
   // Draw a rectangle displaying the bounding box
-  rectangle(frame, Point(left, top), Point(right, bottom),
-            Scalar(255, 255, 255), 1);
-
-  // Get the label for the class name and its confidence
-  string conf_label = format("%.2f", conf);
-  string label = "";
-  if (!classes.empty()) {
-    label = classes[classId] + ":" + conf_label;
+  for (auto bbox : bboxes) {
+    rectangle(frame, bbox, Scalar(255, 255, 255), 1);
   }
-
-  // Display the label at the top of the bounding box
-  int baseLine;
-  Size labelSize = getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
-  top = max(top, labelSize.height);
-  rectangle(frame, Point(left, top - labelSize.height),
-            Point(left + labelSize.width, top + baseLine),
-            Scalar(255, 255, 255), FILLED);
-  putText(frame, label, Point(left, top), FONT_HERSHEY_SIMPLEX, 0.5,
-          Scalar(0, 0, 0), 1, LINE_AA);
-}
-
-// Remove the bounding boxes with low confidence using non-maxima suppression
-void postprocess(Mat* frame, const vector<Mat>& outs) {
-
+  std::string img_name = "out_image_" + std::to_string(img_count) + ".jpg";
+  std::cout << "Writing image: " << img_name << std::endl;
+  cv::imwrite(img_name, frame);
+  ++img_count;
 }
 
 int main(int argc, char** argv) {
@@ -65,33 +44,33 @@ int main(int argc, char** argv) {
   String modelWeights = "yolov3.weights";
 
   // Load the network
-  Network nn(modelConfiguration, modelWeights);
+  std::shared_ptr nn =
+      std::make_shared<Network>(modelConfiguration, modelWeights);
+  nn->setInputSize(inpHeight, inpWidth);
+  nn->setConfThreshold(confThreshold);
+  nn->setNMSThreshold(nmsThreshold);
 
-  std::shared_ptr<cv::Mat> input;
+  std::string dir_path = "images";
+  std::vector<std::string> image_paths;
+  for (const auto& entry : std::filesystem::directory_iterator(dir_path))
+    image_paths.push_back(entry.path());
 
-  input = std::make_shared<cv::Mat>(imread("images/dog.jpg"));
+  std::vector<std::future<void>> futures;
 
-  // Stop the program if reached end of video
-  if (input->empty()) {
-    cout << "No input image" << endl;
-    return 0;
+  for (auto imgp : image_paths) {
+    // Runs the forward pass to get output of the output layers
+    // Runs post-processing to keep only a few high-score boxes
+    futures.emplace_back(
+        std::async(std::launch::async, &Network::detect, nn, imread(imgp)));
+  }
+  int img_cnt = 0;
+  while (true) {
+    auto prediction = nn->getPrediction();
+    drawPred(prediction.first, prediction.second, img_cnt);
   }
 
-  nn.setInputSize(inpHeight, inpWidth);
-  nn.setConfThreshold(confThreshold);
-  nn.setNMSThreshold(nmsThreshold);
-  nn.setInput(input.get());
-
-  // Runs the forward pass to get output of the output layers
-  // Runs post-processing to keep only a few high-score boxes
-  nn.detect();
-
-  // cv::drawPred(classIds[idx], confidences[idx], box.x, box.y, box.x + box.width,
-    //         box.y + box.height, *frame);
-
-  namedWindow("Results");
-  imshow("Results", *input);
-  waitKey(0);
+  std::for_each(futures.begin(), futures.end(),
+                [](std::future<void>& ftr) { ftr.wait(); });
 
   return 0;
 }
