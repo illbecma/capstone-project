@@ -30,16 +30,15 @@ std::string modelWeights = "yolov3.weights";
 
 
 // Draw the predicted bounding box
-void drawPred(Mat& frame, std::vector<cv::Rect> bboxes,
-              std::vector<int> class_ids, size_t& img_count) {
+void drawPred(Mat& frame, std::vector<cv::Rect> bboxes, std::vector<int> class_ids, size_t& img_count) {
   // Draw a rectangle displaying the bounding box
   for (size_t i = 0; i < bboxes.size(); i++) {
     rectangle(frame, bboxes[i], Scalar(0, 0, 255), 1);
     string label = classes[class_ids[i]];
     putText(frame, label, bboxes[i].tl(), FONT_HERSHEY_SIMPLEX, 0.5,
-            Scalar(0, 0, 255), 1, LINE_AA);
+          Scalar(0, 0, 255), 1, LINE_AA);
   }
-
+  
   std::string img_name = "out_image_" + std::to_string(img_count) + ".jpg";
   std::cout << "Writing image: " << img_name << std::endl;
   cv::imwrite(img_name, frame);
@@ -74,8 +73,7 @@ int main(int argc, char** argv) {
   size_t img_cnt = 1;
   while (true) {
     auto prediction = nn->getPrediction();
-    drawPred(prediction.first, prediction.second.first,
-             prediction.second.second, img_cnt);
+    drawPred(prediction.first, prediction.second.first, prediction.second.second, img_cnt);
     if (img_cnt > image_paths.size()) break;
   }
 
