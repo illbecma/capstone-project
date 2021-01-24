@@ -21,11 +21,15 @@ int inpHeight = 416;        // Height of network's input image
 vector<string> classes;
 
 // Draw the predicted bounding box
-void drawPred(Mat& frame, std::vector<cv::Rect> bboxes, int& img_count) {
+void drawPred(Mat& frame, std::vector<cv::Rect> bboxes, std::vector<int> class_ids, size_t& img_count) {
   // Draw a rectangle displaying the bounding box
-  for (auto bbox : bboxes) {
-    rectangle(frame, bbox, Scalar(255, 255, 255), 1);
+  for (size_t i = 0; i < bboxes.size(); i++) {
+    rectangle(frame, bboxes[i], Scalar(0, 0, 255), 1);
+    string label = classes[class_ids[i]];
+    putText(frame, label, bboxes[i].tl(), FONT_HERSHEY_SIMPLEX, 0.5,
+          Scalar(0, 0, 255), 1, LINE_AA);
   }
+  
   std::string img_name = "out_image_" + std::to_string(img_count) + ".jpg";
   std::cout << "Writing image: " << img_name << std::endl;
   cv::imwrite(img_name, frame);
@@ -56,17 +60,18 @@ int main(int argc, char** argv) {
     image_paths.push_back(entry.path());
 
   std::vector<std::future<void>> futures;
-
   for (auto imgp : image_paths) {
     // Runs the forward pass to get output of the output layers
     // Runs post-processing to keep only a few high-score boxes
     futures.emplace_back(
         std::async(std::launch::async, &Network::detect, nn, imread(imgp)));
   }
-  int img_cnt = 0;
+
+  size_t img_cnt = 1;
   while (true) {
     auto prediction = nn->getPrediction();
-    drawPred(prediction.first, prediction.second, img_cnt);
+    drawPred(prediction.first, prediction.second.first, prediction.second.second, img_cnt);
+    if (img_cnt > image_paths.size()) break;
   }
 
   std::for_each(futures.begin(), futures.end(),

@@ -11,7 +11,7 @@
 
 #include "detector.h"
 
-typedef std::pair<cv::Mat, std::vector<cv::Rect>> BBoxPrediction;
+typedef std::pair<cv::Mat, std::pair<std::vector<cv::Rect>, std::vector<int>>> BBoxPrediction;
 
 class Network : public Detector {
  public:
@@ -38,6 +38,7 @@ class Network : public Detector {
   std::vector<std::string> _outputLayers;
   std::vector<cv::Mat> _outputs;
   std::vector<cv::Rect> _boxes;
+  std::vector<int> _classIds;
   std::mutex _mutex;
   std::deque<BBoxPrediction> _predictions;
   std::condition_variable _cond;
