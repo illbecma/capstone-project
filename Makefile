@@ -6,14 +6,21 @@ format:
 build: clean
 	mkdir -p build
 	cd build && \
-	cmake .. && \
+	cmake -DCOPY_YOLO=ON .. && \
+	make
+
+.PHONY: build
+build-no-copy: clean
+	mkdir -p build
+	cd build && \
+	cmake -DCOPY_YOLO=OFF .. && \
 	make
 
 .PHONY: debug
 debug: clean
 	mkdir -p build
 	cd build && \
-	cmake -DCMAKE_BUILD_TYPE=debug .. && \
+	cmake -DCMAKE_BUILD_TYPE=debug -DCOPY_YOLO=ON .. && \
 	make
 
 .PHONY: valgrind
@@ -23,7 +30,7 @@ valgrind: debug
 	--show-leak-kinds=all \
 	--track-origins=yes \
 	--log-file=../valgrind-out.txt \
-	./membot
+	./capstone
 
 .PHONY: clean
 clean:

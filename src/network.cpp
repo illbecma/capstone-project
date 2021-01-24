@@ -1,13 +1,5 @@
 #include "network.h"
 
-Network::Network(std::string onnx) : _onnxFile(onnx) {
-  try {
-    create(NetworkType::ONNX);
-  } catch (...) {
-    std::cerr << "Initialization of ONNX model failed." << std::endl;
-  }
-}
-
 Network::Network(std::string cfg, std::string weights)
     : _cfg(cfg), _weights(weights) {
   try {
@@ -22,9 +14,6 @@ std::string Network::to_string(NetworkType type) {
     case (NetworkType::Darknet):
       return "Darknet";
       break;
-    case (NetworkType::ONNX):
-      return "ONNX";
-      break;
     default:
       return "";
       break;
@@ -35,8 +24,6 @@ void Network::create(NetworkType type) {
   if (type == NetworkType::Darknet) {
     _net = cv::dnn::readNetFromDarknet(_cfg, _weights);
     getOutputLayers();
-  } else if (type == NetworkType::ONNX) {
-    _net = cv::dnn::readNetFromONNX(_onnxFile);
   } else {
     throw std::invalid_argument("Type " + Network::to_string(type) +
                                 "is not supported!");
@@ -55,7 +42,7 @@ void Network::detect(const cv::Mat& input) {
   _net.forward(_outputs, _outputLayers);
   postProcess(input);
   // add prediction to queue and notify
-  _predictions.push_back(std::make_pair(input, _boxes));
+  _predictions.push_back(std::make_pair(input, std::make_pair(_boxes, _classIds)));
   _cond.notify_one();
 }
 
@@ -91,13 +78,15 @@ void Network::postProcess(const cv::Mat& input) {
   }
 
   // Perform non maximum suppression to eliminate redundant overlapping boxes
-  // with lower confidences
+  // with lower confidences.
   std::vector<int> indices;
   cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
   _boxes.clear();
+  _classIds.clear();
   for (size_t i = 0; i < indices.size(); ++i) {
     int idx = indices[i];
     _boxes.emplace_back(boxes[idx]);
+    _classIds.emplace_back(classIds[idx]);
   }
 }
 
