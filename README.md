@@ -1,5 +1,7 @@
 # CPPND: Capstone - Object Detection with YOLOv3 Darknet model using OpenCV
 
+![Sample output image](./sample.jpg)
+
 This is the code for the Capstone project in the [Udacity C++ Nanodegree Program](https://www.udacity.com/course/c-plus-plus-nanodegree--nd213).
 
 The Capstone Project runs object detection inference of a directory of image files using a pretrained Darknet YOLO neural network using OpenCV library. The code visualizes and stores the results using a multi-theaded approach. Can be further extended to other types of Neural Networks and different type of input data.
