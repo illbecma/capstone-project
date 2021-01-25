@@ -36,3 +36,21 @@ Make sure to download the YOLOv3 weight file before running: “https://pjreddie
 4. Run it: `./capstone`.
 
 > Make sure to correct the paths to image dir and binaries in the code.
+
+## Rubric points
+
+- Loops, Functions, I/O
+  - main.cpp#L50-L52 -> reading class file
+  - main.cpp#L60-L71 -> looping through image paths
+  - main.cpp#L33 -> function that draws predictions on the outputs 
+- Object Oriented Programming
+  - network.h -> class that encapsulates the functionality of a neural network detector
+  - detector.h -> Base class for all the detector types
+- Memory Management
+  - main.cpp#L55-L56 -> smart pointer usage for Network class
+  - network.cpp#L41 -> use of move function
+  - network.cpp#L88 -> use of emplace_back function 
+- Concurrency
+  - main.cpp#L62-L82 -> running tasks for each of the images and running the draw function as soon as they are ready in the queue
+  - network.cpp#L109-L115 L45-L46 -> usage of conditional variable to notify when an object enters and exits the queue
+  - network.cpp#L36 -> usage of lock_guard when running detection
